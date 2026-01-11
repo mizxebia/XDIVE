@@ -3,6 +3,9 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 
+from services.ingestion_engine import ingestion_engine
+from services.cleaning import clean_excel_data
+
 from services.query_router import query_router
 from db.connection import db
 
@@ -81,3 +84,33 @@ async def get_schema():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve schema: {str(e)}"
         )
+    
+@router.post("/api/ingest/excel", tags=["ingestion"])
+async def ingest_excel(file: UploadFile = File(...)):
+    """
+    Upload an Excel file, clean it, and load it into the database.
+    """
+
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+            tmp.write(await file.read())
+            temp_path = tmp.name
+
+        # Run ingestion pipeline
+        result = ingestion_engine.ingest_excel(
+            file_path=temp_path,
+            clean_function=clean_excel_data,
+            table_name="employees"
+        )
+
+        os.remove(temp_path)
+
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["error"])
+
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
