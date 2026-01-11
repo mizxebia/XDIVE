@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   DollarSign,
   Users,
@@ -7,13 +6,11 @@ import {
   PieChart,
   TrendingUp,
 } from 'lucide-react';
+
 import KPICard from '@/components/dashboard/KPICard';
 import ChartCard from '@/components/dashboard/ChartCard';
-import {
-  clientRevenue,
-  totalRevenue,
-  formatCurrency,
-} from '@/data/dashboardData';
+import { useDashboardData } from '@/hooks/useDashboardData';
+
 import {
   BarChart,
   Bar,
@@ -22,209 +19,232 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
   ComposedChart,
   Area,
+  Line,
 } from 'recharts';
 
-const ExecutiveOverview: React.FC = () => {
-  // Calculate KPIs
-  const avgRevenuePerClient = totalRevenue / clientRevenue.length;
-  const topClientRevenue = clientRevenue[0].revenue;
-  const topClientPercentage = (topClientRevenue / totalRevenue) * 100;
-  const top5Revenue = clientRevenue.slice(0, 5).reduce((sum, c) => sum + c.revenue, 0);
-  const top5Percentage = (top5Revenue / totalRevenue) * 100;
-  const herfindahlIndex = clientRevenue.reduce((sum, c) => sum + Math.pow(c.revenue / totalRevenue, 2), 0);
-  const longTailRevenue = clientRevenue.slice(5).reduce((sum, c) => sum + c.revenue, 0);
-  const longTailPercentage = (longTailRevenue / totalRevenue) * 100;
+/* =======================
+   🎨 CYAN THEME
+======================= */
+const CYAN = 'hsl(187, 85%, 53%)';
+const CYAN_LIGHT = 'hsl(187, 85%, 65%)';
+const CYAN_DARK = 'hsl(160, 84%, 39%)';
 
-  // Prepare chart data
-  const barChartData = clientRevenue.map((c) => ({
-    name: c.shortName,
-    revenue: c.revenue,
-    fill: 'url(#barGradient)',
-  }));
+/* =======================
+   💲 USD FORMATTER
+======================= */
+const formatCurrency = (value: number, compact = false) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: compact ? 'compact' : 'standard',
+    maximumFractionDigits: 1,
+  }).format(value);
 
-  // Pareto data
-  let cumulative = 0;
-  const paretoData = clientRevenue.map((c) => {
-    cumulative += c.revenue;
-    return {
-      name: c.shortName,
-      revenue: c.revenue,
-      cumulative: (cumulative / totalRevenue) * 100,
-    };
-  });
+const ExecutiveOverview = () => {
+  const { loading, data, paretoData, totalValue } = useDashboardData();
+
+  if (loading) {
+    return <div className="p-6 text-muted-foreground">Loading dashboard…</div>;
+  }
+
+  /* =======================
+     📊 KPI CALCULATIONS
+  ======================= */
+  const avgRevenue = totalValue / data.length;
+
+  const topValue = data[0]?.value || 0;
+  const topPct = (topValue / totalValue) * 100;
+
+  const top5Value = data.slice(0, 5).reduce((s, r) => s + r.value, 0);
+  const top5Pct = (top5Value / totalValue) * 100;
+
+  const hhi =
+    data.reduce(
+      (sum, r) => sum + Math.pow(r.value / totalValue, 2),
+      0
+    ) * 10000;
 
   const kpis = [
     {
       title: 'Total Revenue',
-      value: formatCurrency(totalRevenue, true),
-      changeLabel: 'Jan-Nov 2025',
+      value: formatCurrency(totalValue, true),
+      changeLabel: 'All periods',
       icon: DollarSign,
     },
     {
-      title: 'Avg Revenue/Client',
-      value: formatCurrency(avgRevenuePerClient, true),
-      changeLabel: `${clientRevenue.length} clients`,
+      title: 'Avg Revenue / Client',
+      value: formatCurrency(avgRevenue, true),
+      changeLabel: `${data.length} clients`,
       icon: Users,
     },
     {
       title: 'Top Client %',
-      value: `${topClientPercentage.toFixed(1)}%`,
-      changeLabel: 'Disney Streaming',
+      value: `${topPct.toFixed(1)}%`,
+      changeLabel: data[0]?.name,
       icon: Target,
     },
     {
       title: 'Top 5 Clients %',
-      value: `${top5Percentage.toFixed(1)}%`,
+      value: `${top5Pct.toFixed(1)}%`,
       changeLabel: 'Concentration risk',
       icon: PieChart,
     },
     {
       title: 'Revenue Concentration',
-      value: (herfindahlIndex * 10000).toFixed(0),
+      value: hhi.toFixed(0),
       changeLabel: 'HHI Index',
       icon: Percent,
     },
     {
       title: 'Long-Tail Revenue',
-      value: `${longTailPercentage.toFixed(1)}%`,
-      changeLabel: `Bottom ${clientRevenue.length - 5} clients`,
+      value: `${(100 - top5Pct).toFixed(1)}%`,
+      changeLabel: `Bottom ${Math.max(data.length - 5, 0)} clients`,
       icon: TrendingUp,
     },
   ];
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="glass-card px-3 py-2 text-xs">
-          <p className="font-medium text-foreground">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-muted-foreground">
-              {entry.name}: {entry.name === 'cumulative' ? `${entry.value.toFixed(1)}%` : formatCurrency(entry.value, true)}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Executive Overview</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Revenue analytics and client concentration metrics
-        </p>
-      </div>
+      <h1 className="text-2xl font-bold">Executive Overview</h1>
 
-      {/* KPI Grid */}
+      {/* KPI CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {kpis.map((kpi, index) => (
+        {kpis.map((kpi, i) => (
           <KPICard
             key={kpi.title}
             {...kpi}
-            index={index}
+            index={i}
+            className="border border-[hsl(187,85%,53%,0.25)]"
           />
         ))}
       </div>
 
-      {/* Charts */}
+      {/* CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue by Client Bar Chart */}
-        <ChartCard
-          title="Revenue by Client"
-          subtitle="Ranked by revenue contribution"
-        >
+        {/* -------- Revenue by Client -------- */}
+        <ChartCard title="Revenue by Client" subtitle="Ranked contribution">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={barChartData}
-              layout="vertical"
-              margin={{ top: 0, right: 20, left: 0, bottom: 0 }}
-            >
+            <BarChart data={data} layout="vertical">
               <defs>
-                <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="hsl(187, 85%, 53%)" />
-                  <stop offset="100%" stopColor="hsl(160, 84%, 39%)" />
+                <linearGradient id="cyanGradient" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={CYAN_LIGHT} />
+                  <stop offset="50%" stopColor={CYAN} />
+                  <stop offset="100%" stopColor={CYAN_DARK} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 18%)" horizontal={false} />
+
+              <CartesianGrid
+                stroke="hsl(187,85%,53%,0.15)"
+                strokeDasharray="3 3"
+                horizontal={false}
+              />
+
               <XAxis
                 type="number"
-                tickFormatter={(value) => formatCurrency(value, true)}
-                tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 10 }}
-                axisLine={{ stroke: 'hsl(217, 33%, 18%)' }}
+                tickFormatter={(v) => formatCurrency(v, true)}
+                tick={{ fill: 'hsl(215,20%,55%)', fontSize: 11 }}
               />
+
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 10 }}
-                axisLine={{ stroke: 'hsl(217, 33%, 18%)' }}
-                width={80}
+                width={160}
+                tick={{ fill: 'hsl(215,20%,55%)', fontSize: 11 }}
               />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="revenue" radius={[0, 4, 4, 0]} />
+
+              <Tooltip
+                contentStyle={{
+                  background: 'rgba(10,15,25,0.95)',
+                  border: '1px solid hsl(187,85%,53%,0.35)',
+                  borderRadius: '10px',
+                  boxShadow: '0 0 25px hsl(187,85%,53%,0.35)',
+                }}
+                formatter={(v: any) => formatCurrency(v, true)}
+              />
+
+              <Bar
+                dataKey="value"
+                fill="url(#cyanGradient)"
+                radius={[0, 6, 6, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        {/* Cumulative Revenue (Pareto) */}
+        {/* -------- Pareto Chart -------- */}
         <ChartCard
           title="Cumulative Revenue Distribution"
-          subtitle="Pareto analysis of client contribution"
+          subtitle="Pareto (80/20) analysis"
         >
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart
-              data={paretoData}
-              margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-            >
+            <ComposedChart data={paretoData}>
               <defs>
-                <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(187, 85%, 53%)" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="hsl(187, 85%, 53%)" stopOpacity={0} />
+                <linearGradient id="cyanArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CYAN} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={CYAN} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 18%)" />
-              <XAxis
-                dataKey="name"
-                tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 10 }}
-                axisLine={{ stroke: 'hsl(217, 33%, 18%)' }}
+
+              <CartesianGrid
+                stroke="hsl(187,85%,53%,0.15)"
+                strokeDasharray="3 3"
               />
+
+              <XAxis dataKey="name" tick={false} />
+
               <YAxis
                 yAxisId="left"
-                tickFormatter={(value) => formatCurrency(value, true)}
-                tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 10 }}
-                axisLine={{ stroke: 'hsl(217, 33%, 18%)' }}
+                tickFormatter={(v) => formatCurrency(v, true)}
+                tick={{ fill: 'hsl(215,20%,55%)', fontSize: 11 }}
               />
+
               <YAxis
                 yAxisId="right"
                 orientation="right"
                 domain={[0, 100]}
-                tickFormatter={(value) => `${value}%`}
-                tick={{ fill: 'hsl(160, 84%, 39%)', fontSize: 10 }}
-                axisLine={{ stroke: 'hsl(217, 33%, 18%)' }}
+                tickFormatter={(v) => `${v}%`}
+                tick={{ fill: CYAN, fontSize: 11 }}
               />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar yAxisId="left" dataKey="revenue" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+
+              <Tooltip
+                contentStyle={{
+                  background: 'rgba(10,15,25,0.95)',
+                  border: '1px solid hsl(187,85%,53%,0.35)',
+                  borderRadius: '10px',
+                  boxShadow: '0 0 25px hsl(187,85%,53%,0.35)',
+                }}
+              />
+
+              <Bar
+                yAxisId="left"
+                dataKey="value"
+                fill="hsl(187,85%,53%,0.35)"
+                radius={[6, 6, 0, 0]}
+              />
+
               <Area
                 yAxisId="right"
                 type="monotone"
                 dataKey="cumulative"
-                stroke="hsl(160, 84%, 39%)"
-                fill="url(#areaGradient)"
-                strokeWidth={2}
+                stroke={CYAN}
+                strokeWidth={3}
+                fill="url(#cyanArea)"
               />
+
               <Line
                 yAxisId="right"
                 type="monotone"
                 dataKey="cumulative"
-                stroke="hsl(160, 84%, 39%)"
-                strokeWidth={2}
-                dot={{ fill: 'hsl(160, 84%, 39%)', strokeWidth: 0, r: 4 }}
+                stroke={CYAN}
+                strokeWidth={3}
+                dot={{
+                  r: 5,
+                  fill: CYAN_LIGHT,
+                  stroke: CYAN,
+                  strokeWidth: 2,
+                }}
               />
             </ComposedChart>
           </ResponsiveContainer>
