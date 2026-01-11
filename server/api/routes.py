@@ -1,116 +1,78 @@
 """FastAPI route handlers"""
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
-from services.ingestion_engine import ingestion_engine
-from services.cleaning import clean_excel_data
-
-from services.query_router import query_router
-from db.connection import db
+# --- Services ---
+from services.query_router import query_router  # For legacy manual SQL
+from services.gemini_sql import sql_service     # For new AI SQL
 
 router = APIRouter()
 
+# --- Request Models ---
 
-# Request/Response Models
 class SQLQueryRequest(BaseModel):
-    """SQL query request model"""
+    """Request model for manual SQL execution"""
     query: str
     parameters: Optional[Dict[str, Any]] = None
 
+class GenerateSQLRequest(BaseModel):
+    """
+    Request model for AI SQL generation.
+    Only requires 'query'. Schema is handled internally.
+    """
+    query: str = Field(..., title="User Question", example="Show me the total actual revenue")
 
-class NLPQueryRequest(BaseModel):
-    """Natural language query request model"""
-    query: str
-    context: Optional[Dict[str, Any]] = None
 
+# --- Endpoints ---
 
 @router.post("/api/query/sql", tags=["query"])
 async def execute_sql_query(request: SQLQueryRequest):
     """
-    Execute a SQL query
-    
-    - **query**: SQL query string
-    - **parameters**: Optional query parameters for parameterized queries
-    
-    Returns query results in JSON format
-    """
-    result = query_router.execute_sql_query(request.query, request.parameters)
-    
-    if not result["success"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result["error"]
-        )
-    
-    return result
-
-
-@router.post("/api/query/nlp", tags=["query"])
-async def execute_nlp_query(request: NLPQueryRequest):
-    """
-    Execute a natural language query
-    
-    - **query**: Natural language query string
-    - **context**: Optional additional context
-    
-    Translates the natural language query to SQL and executes it.
-    Returns query results in JSON format with the generated SQL.
-    """
-    result = query_router.execute_nlp_query(request.query, request.context)
-    
-    if not result["success"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result["error"]
-        )
-    
-    return result
-
-
-@router.get("/api/schema", tags=["schema"])
-async def get_schema():
-    """
-    Get database schema metadata
-    
-    Returns information about all tables, columns, primary keys,
-    foreign keys, and indexes in the database.
+    Execute a raw SQL query manually (Legacy Endpoint).
     """
     try:
-        schema_info = db.get_schema_metadata()
-        return schema_info
+        result = query_router.execute_sql_query(request.query, request.parameters)
+        
+        if not result.get("success", False):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.get("error", "SQL Execution failed")
+            )
+        return result
+        
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve schema: {str(e)}"
+            detail=str(e)
         )
+
+
+@router.post("/api/v1/generate-sql", tags=["nl2sql"])
+async def generate_sql(request: GenerateSQLRequest):
+    """
+    **Direct-to-SQL Pipeline**
     
-@router.post("/api/ingest/excel", tags=["ingestion"])
-async def ingest_excel(file: UploadFile = File(...)):
+    1. Receives your natural language question.
+    2. Sends it to **Gemini 1.5 Flash**.
+    3. Executes the generated SQL on the 'revenue' table.
+    4. Returns the data rows.
     """
-    Upload an Excel file, clean it, and load it into the database.
-    """
-
     try:
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-            tmp.write(await file.read())
-            temp_path = tmp.name
-
-        # Run ingestion pipeline
-        result = ingestion_engine.ingest_excel(
-            file_path=temp_path,
-            clean_function=clean_excel_data,
-            table_name="employees"
-        )
-
-        os.remove(temp_path)
-
-        if not result["success"]:
-            raise HTTPException(status_code=400, detail=result["error"])
-
+        result = sql_service.generate_and_execute(request.query)
+        
+        if result["status"] == "error":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result
+            )
+        
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
