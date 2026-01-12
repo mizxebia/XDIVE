@@ -20,7 +20,7 @@ interface AISidebarProps {
 
 const getInsightsForPage = (pathname: string) => {
   switch (pathname) {
-    case '/':
+    case '/executive':
       return aiInsights.executive;
     case '/skills':
       return aiInsights.skill;

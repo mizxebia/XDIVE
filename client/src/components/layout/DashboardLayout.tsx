@@ -13,15 +13,14 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AISidebar from '@/components/dashboard/AISidebar';
-import FilterBar from '@/components/dashboard/FilterBar';
 
 const navItems = [
-  { path: '/', label: 'Executive Overview', icon: LayoutDashboard },
+  { path: '/executive', label: 'Executive Overview', icon: LayoutDashboard },
   { path: '/skills', label: 'Skill vs Revenue', icon: Code2 },
   { path: '/designations', label: 'Designation vs Revenue', icon: Users },
   { path: '/time', label: 'Time Intelligence', icon: Clock },
-  { path: '/managers', label: 'Manager Performance', icon: UserCog },
   { path: '/ai-chat', label: 'AI Insights & Chat', icon: MessageSquareText },
+  { path: '/', label: 'Back to Home', icon: UserCog },
 ];
 
 const DashboardLayout: React.FC = () => {
@@ -45,7 +44,8 @@ const DashboardLayout: React.FC = () => {
               <div className="w-8 h-8 rounded-lg bg-brand-accent flex items-center justify-center">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <span className="font-semibold text-foreground">XF Analytics</span>
+              <span className="font-semibold text-foreground">X-DIVE</span>
+
             </div>
           )}
           {sidebarCollapsed && (
@@ -106,7 +106,7 @@ const DashboardLayout: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-screen">
         {/* Filter Bar */}
-        <FilterBar />
+    
 
         {/* Page Content */}
         <div className="flex-1 p-6 overflow-auto">

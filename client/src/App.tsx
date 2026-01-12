@@ -8,9 +8,10 @@ import ExecutiveOverview from "./pages/ExecutiveOverview";
 import SkillRevenue from "./pages/SkillRevenue";
 import DesignationRevenue from "./pages/DesignationRevenue";
 import TimeIntelligence from "./pages/TimeIntelligence";
-import ManagerPerformance from "./pages/ManagerPerformance";
+import ManagerPerformance from "./pages/LandingPage";
 import AIInsightsChat from "./pages/AIInsightsChat";
 import NotFound from "./pages/NotFound";
+import IntroComponent from "./components/Intro";
 
 const queryClient = new QueryClient();
 
@@ -22,7 +23,9 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route element={<DashboardLayout />}>
-            <Route path="/" element={<ExecutiveOverview />} />
+            <Route path="/" element={<IntroComponent />} />
+            <Route path="/executive" element={<ExecutiveOverview />} />
+
             <Route path="/skills" element={<SkillRevenue />} />
             <Route path="/designations" element={<DesignationRevenue />} />
             <Route path="/time" element={<TimeIntelligence />} />
