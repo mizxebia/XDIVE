@@ -63,17 +63,21 @@ const IntroComponent = () => {
         <div className="container mx-auto text-center relative z-10 max-w-5xl">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full glass mb-10">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <span className="text-2xl font-semibold tracking-widest text-muted-foreground">
+            <Sparkles className="w-5 h-5 text-emerald-400" />
+            <span className="text-2xl font-semibold tracking-widest bg-gradient-to-r from-emerald-400 via-lime-400 to-yellow-400 bg-clip-text text-transparent">
               X-DIVE
             </span>
           </div>
 
           {/* Title */}
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-6 tracking-tight leading-tight">
-            <span className="gradient-text glow-text">Shaping Tomorrow</span>
+            <span className="text-white">
+              Shaping Tomorrow.
+            </span>
             <br />
-            <span className="text-foreground">with AI Today</span>
+            <span className="bg-gradient-to-r from-emerald-400 via-lime-400 to-yellow-400 bg-clip-text text-transparent">
+              with AI Today
+            </span>
           </h1>
 
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-14 leading-relaxed">
@@ -81,12 +85,11 @@ const IntroComponent = () => {
             designed to transform insights into action and accelerate growth.
           </p>
 
-          {/* CTAs */}
+          {/* CTA */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button className="px-8 py-4 rounded-lg gradient-primary text-primary-foreground font-semibold text-lg glow hover:scale-105 transition-transform">
               Get Started
             </button>
-            
           </div>
         </div>
 
@@ -133,8 +136,6 @@ const IntroComponent = () => {
           </div>
         </div>
       </section>
-
-      
 
       {/* Footer / Team */}
       <footer className="relative py-20 px-4 border-t border-border">
